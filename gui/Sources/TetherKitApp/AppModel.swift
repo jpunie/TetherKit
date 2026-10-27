@@ -123,6 +123,16 @@ final class AppModel {
     /// 网络配置表单。
     var networkConfiguration: NetworkConfiguration = .dhcp
 
+    /// 插上设备自动连接（一次指纹授权后以默认静态 IP 上线）。
+    var autoConnectEnabled: Bool = UserDefaults.standard.bool(forKey: "TetherKitAutoConnect") {
+        didSet { UserDefaults.standard.set(autoConnectEnabled, forKey: "TetherKitAutoConnect") }
+    }
+    var defaultStaticAddress: String = UserDefaults.standard.string(forKey: "TetherKitDefaultIP")
+        ?? DefaultStaticProfile.defaultAddress {
+        didSet { UserDefaults.standard.set(defaultStaticAddress, forKey: "TetherKitDefaultIP") }
+    }
+    private var autoConnectGate = AutoConnectGate()
+
     /// 界面语言偏好。改它会**同时**做三件事：切 Swift 侧的文案表、把语言推给
     /// libtetherkit（否则日志卡里会混进另一种语言）、再推给 helper（它以 root
     /// 跑在 launchd 下，看不到用户的语言偏好）。
@@ -354,6 +364,15 @@ final class AppModel {
             }
         }
 
+        if let id = autoConnectGate.deviceToConnect(
+            enabled: autoConnectEnabled && helperAvailability.isAvailable,
+            sessionIdle: [.idle, .stopped, .failed].contains(status.runState),
+            busy: isBusy,
+            deviceIDs: devices.map(\.id)) {
+            selectedDeviceID = id
+            Task { await connectWithDefaults() }
+        }
+
         if !status.systemInterface.isEmpty {
             networkState = (try? await client.queryNetwork(interface: status.systemInterface))
                 ?? .empty
@@ -464,6 +483,52 @@ final class AppModel {
             throughputHistory.removeAll()
             try await client.startSession(authorization: authorization,
                                           configuration: configuration)
+        }
+    }
+
+    /// 启动会话并立刻套用默认静态 IP；整个过程只需一次授权（一次指纹）。
+    func connectWithDefaults() async {
+        guard !isBusy else { return }
+        let profile = DefaultStaticProfile.configuration(address: defaultStaticAddress)
+        if let message = NetworkValidator.validationMessage(for: profile) {
+            alertMessage = message
+            return
+        }
+        isBusy = true
+        defer { isBusy = false }
+
+        var configuration = SessionConfiguration(mtu: requestedMTU,
+                                                 adoptDeviceMAC: adoptDeviceMAC)
+        if let device = selectedDevice {
+            configuration.busNumber = device.busNumber
+            configuration.deviceAddress = device.deviceAddress
+        }
+
+        await authorized { [self] authorization in
+            throughputHistory.removeAll()
+            try await client.startSession(authorization: authorization,
+                                          configuration: configuration)
+            // 虚拟网卡在会话跑起来后才有名字；最多等 15 秒。
+            var interface = ""
+            for _ in 0..<60 {
+                if let fresh = try? await client.sessionStatus() {
+                    apply(status: fresh)
+                    if fresh.runState == .running, !fresh.systemInterface.isEmpty {
+                        interface = fresh.systemInterface
+                        break
+                    }
+                    if fresh.runState == .failed { return }
+                }
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            guard !interface.isEmpty else {
+                alertMessage = L(.autoConnectTimeout)
+                return
+            }
+            networkConfiguration = profile
+            try await client.applyNetwork(authorization: authorization, interface: interface,
+                                          configuration: profile)
+            networkState = (try? await client.queryNetwork(interface: interface)) ?? .empty
         }
     }
 

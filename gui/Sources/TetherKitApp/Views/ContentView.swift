@@ -137,6 +137,7 @@ struct ContentView: View {
                     VStack(spacing: Design.Spacing.gutter) {
                         DeviceCard(model: model)
                         NetworkCard(model: model)
+                        AutoConnectRow(model: model)
                     }
                     Spacer(minLength: 0)
                     helperManagementFooter

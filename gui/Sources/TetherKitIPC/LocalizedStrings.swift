@@ -131,6 +131,9 @@ public enum L10nKey: String, CaseIterable, Sendable {
     // MARK: - 应用模型（AppModel.swift）
 
     case authPromptSession
+    case autoConnectToggle
+    case autoConnectAddressLabel
+    case autoConnectTimeout
     case authPromptInstall
     case authPromptUninstall
     case interfaceNotReadyYet
@@ -439,6 +442,13 @@ extension L10nKey {
 
         // MARK: 应用模型
 
+        case .autoConnectToggle:
+            return ("插上设备后自动连接", "Connect automatically when the device is plugged in")
+        case .autoConnectAddressLabel:
+            return ("默认静态 IP", "Default static IP")
+        case .autoConnectTimeout:
+            return ("虚拟网卡迟迟没有就绪，未能配置静态 IP。",
+                    "The virtual interface did not become ready; the static IP was not applied.")
         case .authPromptSession:
             return ("TetherKit 需要管理员权限来创建虚拟网卡、打开数据链路并配置 IP 地址。",
                     "TetherKit needs administrator privileges to create the virtual interface, "

@@ -411,3 +411,13 @@ sudo ./gui/Scripts/uninstall-helper.sh
 | 授权框只有密码、没有指纹 | 这是系统 API 的限制，不是缺陷，见第 4.5 节 |
 | 设备拔掉重插后点「连接」报「会话已经在运行了」 | helper 是旧版（失败态旧会话未被清理），重装 helper |
 | 仅菜单栏模式下双击访达图标没反应 | 已知权衡（见 MainWindowRoot 的说明），从菜单栏面板打开即可 |
+
+## Auto-connect with Touch ID
+
+`AppModel.connectWithDefaults()` starts the session and applies the default static
+IP (default `192.168.10.4/24`, no router/DNS) inside **one** `authorized {}` call, so a
+single system authorization (Touch ID, password fallback) covers both steps. With
+"auto-connect" enabled, `refresh()` calls it when exactly one RNDIS device appears.
+`AutoConnectGate` (TetherKitIPC) makes this edge-triggered: one attempt per plug-in,
+no retry after cancel/failure until the device is unplugged. Settings live in
+UserDefaults (`TetherKitAutoConnect`, `TetherKitDefaultIP`); no XPC change.
