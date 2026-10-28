@@ -680,7 +680,8 @@ final class AppModel {
             if let cached = cachedAuthorization {
                 token = cached
             } else {
-                token = try AuthorizationBroker.requestAuthorization(prompt: prompt)
+                token = try AuthorizationBroker.requestAuthorization(
+                    right: HelperConstants.privilegedRightName, prompt: prompt)
                 cachedAuthorization = token
             }
             defer { withExtendedLifetime(token) {} }

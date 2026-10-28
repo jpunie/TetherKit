@@ -104,9 +104,10 @@ public enum AuthorizationBroker {
     ///
     /// 必须在主线程调用 —— 它会呈现 UI。
     public static func requestAuthorization(
-        right: String = HelperConstants.privilegedRightName,
+        right: String? = nil,
         prompt: String? = nil
     ) throws -> AuthorizationToken {
+        let right = right ?? preferredRight()
         var authorization: AuthorizationRef?
         let createStatus = AuthorizationCreate(nil, nil, [], &authorization)
         guard createStatus == errAuthorizationSuccess, let authorization else {
@@ -143,6 +144,12 @@ public enum AuthorizationBroker {
     /// 单独抽出来是因为环境项的构造要嵌好几层 `withUnsafe*` —— 那些缓冲必须活
     /// 到 `AuthorizationCopyRights` 返回之后，写在主流程里很容易被后来的人
     /// 「顺手整理」成悬垂指针。
+    /// 新权利已登记就用它（有 Touch ID），否则回退旧权利（只有密码框）。
+    public static func preferredRight() -> String {
+        AuthorizationRightGet(HelperConstants.sessionRightName, nil) == errAuthorizationSuccess
+            ? HelperConstants.sessionRightName : HelperConstants.privilegedRightName
+    }
+
     private static func copyRights(_ authorization: AuthorizationRef,
                                    right: String,
                                    prompt: String?) -> OSStatus {
@@ -217,8 +224,16 @@ public enum AuthorizationVerifier {
     ///   3. 复核是**每次特权调用**都要做的。helper 的 root 来自 launchd，
     ///      跟用户按没按指纹毫无关系 —— 它一启动就是 root，任何能连上 Mach
     ///      服务的进程都能发请求。所以「谁在调用」只能由 helper 自己回答。
-    public static func verify(externalForm data: Data,
-                              right: String = HelperConstants.privilegedRightName) throws {
+    public static func verify(externalForm data: Data) throws {
+        // 两条权利都是真实的管理员认证，接受任一即可（旧版 App / 未登记新权利时用后者）。
+        do {
+            try verify(externalForm: data, right: HelperConstants.sessionRightName)
+        } catch Failure.rightNotHeld {
+            try verify(externalForm: data, right: HelperConstants.privilegedRightName)
+        }
+    }
+
+    public static func verify(externalForm data: Data, right: String) throws {
         guard data.count == MemoryLayout<AuthorizationExternalForm>.size else {
             throw Failure.malformedCredential
         }

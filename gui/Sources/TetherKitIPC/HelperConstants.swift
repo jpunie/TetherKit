@@ -27,6 +27,12 @@ public enum HelperConstants {
     ///   密码 / Touch ID 框，语义也贴切：「这是一次需要管理员身份的操作」。
     public static let privilegedRightName = "system.privilege.admin"
 
+    /// 会话操作用的权利：由安装脚本以 root 写入策略库，规则是
+    /// authenticate-admin-nonshared。**必须是 rule 类**：system.privilege.admin
+    /// 是旧式 class=user，只会弹用户名+密码框，永远没有指纹。
+    /// 安装 / 卸载本身仍用 system.privilege.admin（此时这条权利还不存在）。
+    public static let sessionRightName = "com.tetherkit.session"
+
     /// XPC 接口的修订号。**每次改动 TetherKitHelperProtocol 都要加一。**
     ///
     /// 为什么需要它：helper 是装在系统目录里的，升级 App 时如果忘了重装 helper，

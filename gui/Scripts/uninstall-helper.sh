@@ -25,6 +25,7 @@ if launchctl print "system/${LABEL}" >/dev/null 2>&1; then
 fi
 
 log "删除文件"
+security authorizationdb remove com.tetherkit.session >/dev/null 2>&1 || true
 rm -f "${PLIST_PATH}" "${INSTALL_PATH}"
 rm -f "${TOOLS_DIR}"/libtetherkit*.dylib "${TOOLS_DIR}"/libusb-*.dylib
 

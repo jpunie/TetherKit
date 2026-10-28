@@ -81,6 +81,12 @@ chmod 644 "${PLIST_PATH}"
 # ------------------------------------------------------------------------------
 # 注册
 # ------------------------------------------------------------------------------
+# 基于 rule 的授权权利：走新式认证界面，才会提供 Touch ID。
+# system.privilege.admin 是旧式 class=user，只会弹用户名+密码框。
+log "登记授权权利 com.tetherkit.session（Touch ID）"
+security authorizationdb write com.tetherkit.session authenticate-admin-nonshared >/dev/null \
+  || log "警告：授权权利登记失败，App 将回退到密码框"
+
 log "注册 LaunchDaemon"
 launchctl bootstrap system "${PLIST_PATH}"
 
